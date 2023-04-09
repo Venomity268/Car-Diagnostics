@@ -1,5 +1,75 @@
+import tkinter as tk
+from tkinter import simpledialog
+from PIL import ImageTk, Image
 import obd
-import sqlite3
+
+class OBD2CodeGUI:
+    def __init__(self, master=None):
+        self.master = master
+        master.title("OBD2 Code Lookup")
+        master.attributes("-fullscreen", True)
+        master.attributes("-topmost", True)
+        master.bind("<Escape>", lambda event: master.attributes("-fullscreen", True))
+
+        image = Image.open("car_diagnostics.png")
+        self.bg_image = ImageTk.PhotoImage(image)
+
+        self.canvas = tk.Canvas(master, bg="lightgrey")  # Set the canvas background color to light grey
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        screen_width = master.winfo_screenwidth()
+        screen_height = master.winfo_screenheight()
+
+        self.canvas.config(width=screen_width, height=screen_height)
+        self.canvas.create_image(screen_width // 2, screen_height // 2, image=self.bg_image, anchor="center")
+
+        # Place the other widgets on top of the canvas
+        self.choice_label = tk.Label(self.canvas, text="Car Diagnostics OBD2 Code Lookup", bg="#F0F0F0", font=("Arial", 20))
+        self.choice_label.place(relx=0.5, rely=0.2, anchor="center")
+
+        self.auto_button = tk.Button(self.canvas, text="Scan Automatic Code", command=self.auto_scan, font=("Arial", 16))
+        self.auto_button.place(relx=0.5, rely=0.33, anchor="center", width=250, height=45)
+
+        self.manual_button = tk.Button(self.canvas, text="Enter Code Manually", command=self.manual_enter, font=("Arial", 16))
+        self.manual_button.place(relx=0.5, rely=0.49, anchor="center", width=250, height=45)
+
+        self.output_label = tk.Label(self.canvas, text="", bg="#F0F0F0", font=("Arial", 14))
+        self.output_label.place(relx=0.5, rely=0.80, anchor="center")
+
+        # Add an exit button to the bottom left corner
+        self.exit_button = tk.Button(self.canvas, text="Exit", command=self.close_window, font=("Arial", 16))
+        self.exit_button.place(relx=0.1, rely=0.95, anchor="sw")
+
+    def auto_scan(self):
+        connection = obd.OBD()
+        if not connection.is_connected():
+            self.output_label.configure(text="There is no connection to the vehicle.")
+            return
+        obd2_code = connection.query(obd.commands.GET_DTC)
+        self.display_fix(obd2_code.value)
+
+    def manual_enter(self):
+        self.output_label.configure(text="")
+        self.entry = tk.Entry(self.canvas)
+        self.entry.place(relx=0.5, rely=0.63, anchor="center")
+        self.entry.focus()
+        self.entry.bind("<Return>", self.get_manual_code)
+
+    def get_manual_code(self, event):
+        code_input = self.entry.get().strip().upper()
+        self.entry.destroy()
+        if code_input:
+            self.display_fix(code_input)
+
+    def display_fix(self, obd2_code):
+        if obd2_code in DTC:
+            fix = f"Fix for DTC {obd2_code}: {DTC[obd2_code]}"
+        else:
+            fix = f"DTC {obd2_code} not found"
+        self.output_label.configure(text=fix)
+
+    def close_window(self):
+        self.master.destroy()
 
 DTC = {
     "P0001": "Fuel Volume Regulator Control Circuit/Open",
@@ -2071,15 +2141,7 @@ DTC = {
     "U0431": "Invalid Data Received From Body Control Module 'A'",
 }
 
-choice = int(input("What do wish to do? (1) Scan Automatic Code or (2) Enter Code Manually - "))
 
-if choice == 1:
-    connection = obd.OBD()
-    obd2_code = connection.query(obd.commands.GET_DTC)
-else:
-    obd2_code = input("Enter OBD2 code: ")
-
-if obd2_code in DTC:
-    print(f'Fix for DTC {obd2_code}: {DTC[obd2_code]}')
-else:
-    print(f'DTC {obd2_code} not found in the list')
+root = tk.Tk()
+obd2_gui = OBD2CodeGUI(root)
+root.mainloop()
